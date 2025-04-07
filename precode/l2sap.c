@@ -14,8 +14,40 @@ static uint8_t compute_checksum( const uint8_t* frame, int len );
 
 L2SAP* l2sap_create( const char* server_ip, int server_port )
 {
-    fprintf( stderr, "%s has not been implemented yet\n", __FUNCTION__ );
-    return NULL;
+
+    L2SAP * link_layer_state = malloc(sizeof(struct L2SAP));
+    if (!link_layer_state){
+        fprintf(stderr, "L2SAP: failed to allocate memory for link_layer_state.\n");
+        return NULL;
+    }
+
+    link_layer_state->socket = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (link_layer_state->socket < 0){
+        fprintf(stderr, "L2SAP: failed to create socket.\n");
+        free(link_layer_state);
+        return NULL;
+    }
+
+    memset(&link_layer_state->peer_addr, 0, sizeof(link_layer_state->peer_addr));
+    link_layer_state->peer_addr.sin_family = AF_INET;
+    link_layer_state->peer_addr.sin_port = htons(server_port);
+    
+    if (inet_pton(AF_INET, server_ip, &link_layer_state->peer_addr.sin_addr) <= 0){
+        fprintf(stderr, "L2SAP: Invalid IP address.\n");
+        close(link_layer_state->socket);
+        free(link_layer_state);
+        return NULL;
+    }
+
+    if (bind(link_layer_state->socket, (struct sockaddr*) &link_layer_state->peer_addr, sizeof(link_layer_state->peer_addr)) < 0){
+        fprintf(stderr, "L2SAP: binding failed.\n");
+        close(link_layer_state->socket);
+        free(link_layer_state);
+        return NULL;
+    }
+
+    return link_layer_state;
 }
 
 void l2sap_destroy(L2SAP* client)
