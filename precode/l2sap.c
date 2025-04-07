@@ -20,35 +20,44 @@ static uint8_t compute_checksum( const uint8_t* frame, int len ){
     return checksum;
 }
 
-L2SAP* l2sap_create( const char* server_ip, int server_port )
+L2SAP* l2sap_create(const char* server_ip, int server_port)
 {
-
-    L2SAP * service_access_point = malloc(sizeof(struct L2SAP));
-    if (!service_access_point){
+    // Allocate memory for L2SAP structure
+    L2SAP* service_access_point = malloc(sizeof(struct L2SAP));
+    if (!service_access_point) {
         fprintf(stderr, "L2SAP: failed to allocate memory for service_access_point.\n");
         return NULL;
     }
 
+    // Create UDP socket
     service_access_point->socket = socket(AF_INET, SOCK_DGRAM, 0);
-
-    if (service_access_point->socket < 0){
+    if (service_access_point->socket < 0) {
         fprintf(stderr, "L2SAP: failed to create socket.\n");
         free(service_access_point);
         return NULL;
     }
 
+    // Set up peer address (for sending data to server)
     memset(&service_access_point->peer_addr, 0, sizeof(service_access_point->peer_addr));
     service_access_point->peer_addr.sin_family = AF_INET;
     service_access_point->peer_addr.sin_port = htons(server_port);
     
-    if (inet_pton(AF_INET, server_ip, &service_access_point->peer_addr.sin_addr) <= 0){
+    if (inet_pton(AF_INET, server_ip, &service_access_point->peer_addr.sin_addr) <= 0) {
         fprintf(stderr, "L2SAP: Invalid IP address.\n");
         close(service_access_point->socket);
         free(service_access_point);
         return NULL;
     }
 
-    if (bind(service_access_point->socket, (struct sockaddr*) &service_access_point->peer_addr, sizeof(service_access_point->peer_addr)) < 0){
+    // Set up local address (for binding)
+    struct sockaddr_in local_addr;
+    memset(&local_addr, 0, sizeof(local_addr));
+    local_addr.sin_family = AF_INET;
+    local_addr.sin_addr.s_addr = INADDR_ANY;  // Listen on any local interface
+    local_addr.sin_port = 0;  // Let the OS choose a port
+
+    // Bind socket to local address for receiving responses
+    if (bind(service_access_point->socket, (struct sockaddr*)&local_addr, sizeof(local_addr)) < 0) {
         fprintf(stderr, "L2SAP: binding failed.\n");
         close(service_access_point->socket);
         free(service_access_point);
@@ -56,19 +65,6 @@ L2SAP* l2sap_create( const char* server_ip, int server_port )
     }
 
     return service_access_point;
-}
-
-void l2sap_destroy(L2SAP* client)
-{
-    if (client == NULL){
-        return;
-    }
-
-    if (client->socket >= 0){
-        close(client->socket);
-    }
-
-    free(client);
 }
 
 /* l2sap_sendto sends data over UDP, using the given UDP socket
@@ -112,7 +108,7 @@ int l2sap_sendto( L2SAP* client, const uint8_t* data, int len )
     );
 
     if (bytes_sent < 0 ){
-        fprintf(stderr, "L2SAP_sendto: failed to sent bytes.\n");
+        fprintf(stderr, "L2SAP_sendto: failed to send bytes, sent %d.\n", bytes_sent);
         return -1;
     }
 
@@ -209,7 +205,7 @@ int l2sap_recvfrom_timeout(L2SAP* client, uint8_t* data, int len, struct timeval
     
     if (sizeof(L2Header) + payload_len != bytes_received) {
         fprintf(stderr, "L2SAP_recvfrom_timeout: header indicates payload size %d, but received %d\n",
-                payload_len, bytes_received - sizeof(L2Header));
+                payload_len, (int) (bytes_received - sizeof(L2Header)));
         return -1;
     }
     
@@ -236,3 +232,20 @@ int l2sap_recvfrom_timeout(L2SAP* client, uint8_t* data, int len, struct timeval
     return copy_len;
 }
 
+/*
+ * Destroy an L2SAP instance and free all associated resources.
+ */
+void l2sap_destroy(L2SAP* client)
+{
+    if (client == NULL) {
+        return;
+    }
+
+    // Close the socket if it's valid
+    if (client->socket >= 0) {
+        close(client->socket);
+    }
+
+    // Free the structure itself
+    free(client);
+}
