@@ -74,8 +74,46 @@ void l2sap_destroy(L2SAP* client)
  */
 int l2sap_sendto( L2SAP* client, const uint8_t* data, int len )
 {
-    fprintf( stderr, "%s has not been implemented yet\n", __FUNCTION__ );
-    return -1;
+    if (client == NULL || data == NULL || len < 0){
+        fprintf(stderr, "L2SAP_sendto: Invalid parameters.\n");
+        return -1;
+    }
+
+    if (len + sizeof(L2Header) > L2Framesize){
+        fprintf(stderr, "L2SAP_sendto: Payload is too large!");
+        return -1;
+    }
+
+    uint8_t frame[L2Framesize];
+    L2Header* header = (L2Header*) frame;
+    
+    header->dst_addr = client->peer_addr.sin_addr.s_addr;
+    header->len = htons(len);
+    header-> checksum = 0; // Initialize to 0 and compute checksum value later
+    header->mbz = 0;
+
+    memcpy(frame + sizeof(L2Header), data, len);
+    header->checksum = compute_checksum(frame, sizeof(L2Header) + len);
+
+    int bytes_sent = sendto(
+        client->socket,
+        frame,
+        sizeof(L2Header) + len,
+        0,
+        (struct sockaddr*)&client->peer_addr,sizeof(client->peer_addr)
+    );
+
+    if (bytes_sent < 0 ){
+        fprintf(stderr, "L2SAP_sendto: failed to sent bytes.\n");
+        return -1;
+    }
+
+    if (bytes_sent != sizeof(L2Header) + len){
+        fprintf(stderr, "L2SAP_sendto: sent %d bytes but expected &d\n", bytes_sent, (int) (sizeof(L2Header) + len));
+        return -1;
+    }
+
+    return len;
 }
 
 /* Convenience function. Calls l2sap_recvfrom_timeout with NULL timeout
