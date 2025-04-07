@@ -20,8 +20,6 @@ static uint8_t compute_checksum( const uint8_t* frame, int len ){
     return checksum;
 }
 
-
-
 L2SAP* l2sap_create( const char* server_ip, int server_port )
 {
 
@@ -90,7 +88,7 @@ int l2sap_sendto( L2SAP* client, const uint8_t* data, int len )
     }
 
     if (len + sizeof(L2Header) > L2Framesize){
-        fprintf(stderr, "L2SAP_sendto: Payload is too large!");
+        fprintf(stderr, "L2SAP_sendto: Payload is too large!\n");
         return -1;
     }
 
@@ -119,7 +117,7 @@ int l2sap_sendto( L2SAP* client, const uint8_t* data, int len )
     }
 
     if (bytes_sent != sizeof(L2Header) + len){
-        fprintf(stderr, "L2SAP_sendto: sent %d bytes but expected &d\n", bytes_sent, (int) (sizeof(L2Header) + len));
+        fprintf(stderr, "L2SAP_sendto: sent %d bytes but expected %d\n", bytes_sent, (int) (sizeof(L2Header) + len));
         return -1;
     }
 
@@ -149,9 +147,92 @@ int l2sap_recvfrom( L2SAP* client, uint8_t* data, int len )
  * which has the value 0.
  * It returns -1 in case of error.
  */
-int l2sap_recvfrom_timeout( L2SAP* client, uint8_t* data, int len, struct timeval* timeout )
+int l2sap_recvfrom_timeout(L2SAP* client, uint8_t* data, int len, struct timeval* timeout)
 {
-    fprintf( stderr, "%s has not been implemented yet\n", __FUNCTION__ );
-    return -1;
+
+    if (client == NULL || data == NULL || len <= 0) {
+        fprintf(stderr, "L2SAP_recvfrom_timeout: Invalid parameters.\n");
+        return -1;
+    }
+    
+
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(client->socket, &readfds);
+    
+
+    struct timeval timeout_copy;
+    if (timeout != NULL) {
+        timeout_copy = *timeout;
+    }
+    
+
+    int select_result = select(client->socket + 1, &readfds, NULL, NULL, 
+                              timeout ? &timeout_copy : NULL);
+    
+    if (select_result < 0) {
+        fprintf(stderr, "L2SAP_recvfrom_timeout: select call failed\n");
+        return -1;
+    }
+    
+    if (select_result == 0) {
+        return L2_TIMEOUT;
+    }
+    
+    
+    uint8_t frame[L2Framesize];
+    
+    
+    struct sockaddr_in sender_addr;
+    socklen_t sender_addr_len = sizeof(sender_addr);
+    
+    int bytes_received = recvfrom(client->socket, frame, L2Framesize, 0,
+                                 (struct sockaddr*)&sender_addr, &sender_addr_len);
+    
+    if (bytes_received < 0) {
+        fprintf(stderr, "L2SAP_recvfrom_timeout: recvfrom call failed\n");
+        return -1;
+    }
+    
+    
+    if (bytes_received < sizeof(L2Header)) {
+        fprintf(stderr, "L2SAP_recvfrom_timeout: received frame too small (%d bytes)\n", 
+                bytes_received);
+        return -1;
+    }
+    
+    L2Header* header = (L2Header*)frame;
+    
+    
+    int payload_len = ntohs(header->len);
+    
+    
+    if (sizeof(L2Header) + payload_len != bytes_received) {
+        fprintf(stderr, "L2SAP_recvfrom_timeout: header indicates payload size %d, but received %d\n",
+                payload_len, bytes_received - sizeof(L2Header));
+        return -1;
+    }
+    
+    // Verify checksum
+    uint8_t received_checksum = header->checksum;
+    header->checksum = 0;  // Zero out for checksum calculation
+    
+    uint8_t calculated_checksum = compute_checksum(frame, bytes_received);
+    
+    if (calculated_checksum != received_checksum) {
+        fprintf(stderr, "L2SAP_recvfrom_timeout: checksum verification failed (got %02x, expected %02x)\n",
+                calculated_checksum, received_checksum);
+        return -1;
+    }
+    
+    
+    client->peer_addr = sender_addr;
+    
+    
+    int copy_len = payload_len < len ? payload_len : len;
+    memcpy(data, frame + sizeof(L2Header), copy_len);
+    
+    
+    return copy_len;
 }
 
