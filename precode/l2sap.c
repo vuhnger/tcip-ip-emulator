@@ -10,7 +10,17 @@
  * l2_recvfrom_timeout to compute the 1-byte checksum both
  * on sending and receiving and L2 frame.
  */
-static uint8_t compute_checksum( const uint8_t* frame, int len );
+static uint8_t compute_checksum( const uint8_t* frame, int len ){
+    uint8_t checksum = 0;
+
+    for (int i = 0; i < len; ++i){
+        checksum ^=frame[i];
+    }
+
+    return checksum;
+}
+
+
 
 L2SAP* l2sap_create( const char* server_ip, int server_port )
 {
