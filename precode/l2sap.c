@@ -15,39 +15,39 @@ static uint8_t compute_checksum( const uint8_t* frame, int len );
 L2SAP* l2sap_create( const char* server_ip, int server_port )
 {
 
-    L2SAP * link_layer_state = malloc(sizeof(struct L2SAP));
-    if (!link_layer_state){
-        fprintf(stderr, "L2SAP: failed to allocate memory for link_layer_state.\n");
+    L2SAP * service_access_point = malloc(sizeof(struct L2SAP));
+    if (!service_access_point){
+        fprintf(stderr, "L2SAP: failed to allocate memory for service_access_point.\n");
         return NULL;
     }
 
-    link_layer_state->socket = socket(AF_INET, SOCK_DGRAM, 0);
+    service_access_point->socket = socket(AF_INET, SOCK_DGRAM, 0);
 
-    if (link_layer_state->socket < 0){
+    if (service_access_point->socket < 0){
         fprintf(stderr, "L2SAP: failed to create socket.\n");
-        free(link_layer_state);
+        free(service_access_point);
         return NULL;
     }
 
-    memset(&link_layer_state->peer_addr, 0, sizeof(link_layer_state->peer_addr));
-    link_layer_state->peer_addr.sin_family = AF_INET;
-    link_layer_state->peer_addr.sin_port = htons(server_port);
+    memset(&service_access_point->peer_addr, 0, sizeof(service_access_point->peer_addr));
+    service_access_point->peer_addr.sin_family = AF_INET;
+    service_access_point->peer_addr.sin_port = htons(server_port);
     
-    if (inet_pton(AF_INET, server_ip, &link_layer_state->peer_addr.sin_addr) <= 0){
+    if (inet_pton(AF_INET, server_ip, &service_access_point->peer_addr.sin_addr) <= 0){
         fprintf(stderr, "L2SAP: Invalid IP address.\n");
-        close(link_layer_state->socket);
-        free(link_layer_state);
+        close(service_access_point->socket);
+        free(service_access_point);
         return NULL;
     }
 
-    if (bind(link_layer_state->socket, (struct sockaddr*) &link_layer_state->peer_addr, sizeof(link_layer_state->peer_addr)) < 0){
+    if (bind(service_access_point->socket, (struct sockaddr*) &service_access_point->peer_addr, sizeof(service_access_point->peer_addr)) < 0){
         fprintf(stderr, "L2SAP: binding failed.\n");
-        close(link_layer_state->socket);
-        free(link_layer_state);
+        close(service_access_point->socket);
+        free(service_access_point);
         return NULL;
     }
 
-    return link_layer_state;
+    return service_access_point;
 }
 
 void l2sap_destroy(L2SAP* client)
