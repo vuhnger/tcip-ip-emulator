@@ -14,8 +14,40 @@ static uint8_t compute_checksum( const uint8_t* frame, int len );
 
 L2SAP* l2sap_create( const char* server_ip, int server_port )
 {
-    fprintf( stderr, "%s has not been implemented yet\n", __FUNCTION__ );
-    return NULL;
+
+    L2SAP * service_access_point = malloc(sizeof(struct L2SAP));
+    if (!service_access_point){
+        fprintf(stderr, "L2SAP: failed to allocate memory for service_access_point.\n");
+        return NULL;
+    }
+
+    service_access_point->socket = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (service_access_point->socket < 0){
+        fprintf(stderr, "L2SAP: failed to create socket.\n");
+        free(service_access_point);
+        return NULL;
+    }
+
+    memset(&service_access_point->peer_addr, 0, sizeof(service_access_point->peer_addr));
+    service_access_point->peer_addr.sin_family = AF_INET;
+    service_access_point->peer_addr.sin_port = htons(server_port);
+    
+    if (inet_pton(AF_INET, server_ip, &service_access_point->peer_addr.sin_addr) <= 0){
+        fprintf(stderr, "L2SAP: Invalid IP address.\n");
+        close(service_access_point->socket);
+        free(service_access_point);
+        return NULL;
+    }
+
+    if (bind(service_access_point->socket, (struct sockaddr*) &service_access_point->peer_addr, sizeof(service_access_point->peer_addr)) < 0){
+        fprintf(stderr, "L2SAP: binding failed.\n");
+        close(service_access_point->socket);
+        free(service_access_point);
+        return NULL;
+    }
+
+    return service_access_point;
 }
 
 void l2sap_destroy(L2SAP* client)
