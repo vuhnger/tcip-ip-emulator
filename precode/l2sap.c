@@ -20,7 +20,15 @@ L2SAP* l2sap_create( const char* server_ip, int server_port )
 
 void l2sap_destroy(L2SAP* client)
 {
-    fprintf( stderr, "%s has not been implemented yet\n", __FUNCTION__ );
+    if (client == NULL){
+        return;
+    }
+
+    if (client->socket >= 0){
+        close(client->socket);
+    }
+
+    free(client);
 }
 
 /* l2sap_sendto sends data over UDP, using the given UDP socket
