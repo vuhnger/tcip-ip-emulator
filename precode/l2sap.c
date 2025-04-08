@@ -95,9 +95,12 @@ int l2sap_sendto( L2SAP* client, const uint8_t* data, int len )
     header->len = htons(len);
     header-> checksum = 0; // Initialize to 0 and compute checksum value later
     header->mbz = 0;
-
+    uint8_t temp_checksum = 
     memcpy(frame + sizeof(L2Header), data, len);
+
     header->checksum = compute_checksum(frame, sizeof(L2Header) + len);
+
+    fprintf(stderr, "L2_sendto: size of header + len: %lu\n", ((int) len + sizeof(L2Header)));
 
     int bytes_sent = sendto(
         client->socket,
@@ -155,7 +158,6 @@ int l2sap_recvfrom_timeout(L2SAP* client, uint8_t* data, int len, struct timeval
     fd_set readfds;
     FD_ZERO(&readfds);
     FD_SET(client->socket, &readfds);
-    
 
     struct timeval timeout_copy;
     if (timeout != NULL) {
