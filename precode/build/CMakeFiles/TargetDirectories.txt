@@ -1,0 +1,7 @@
+/Users/vuhnger/Documents/6-semester/IN2140/HE/in2140-v25-he/precode/build/CMakeFiles/maze-client.dir
+/Users/vuhnger/Documents/6-semester/IN2140/HE/in2140-v25-he/precode/build/CMakeFiles/transport-test-client.dir
+/Users/vuhnger/Documents/6-semester/IN2140/HE/in2140-v25-he/precode/build/CMakeFiles/datalink-test-client.dir
+/Users/vuhnger/Documents/6-semester/IN2140/HE/in2140-v25-he/precode/build/CMakeFiles/package.dir
+/Users/vuhnger/Documents/6-semester/IN2140/HE/in2140-v25-he/precode/build/CMakeFiles/package_source.dir
+/Users/vuhnger/Documents/6-semester/IN2140/HE/in2140-v25-he/precode/build/CMakeFiles/edit_cache.dir
+/Users/vuhnger/Documents/6-semester/IN2140/HE/in2140-v25-he/precode/build/CMakeFiles/rebuild_cache.dir
