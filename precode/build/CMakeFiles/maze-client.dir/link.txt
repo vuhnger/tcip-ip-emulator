@@ -1,0 +1,1 @@
+/usr/bin/cc -g -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names "CMakeFiles/maze-client.dir/maze-client.c.o" "CMakeFiles/maze-client.dir/l4sap.c.o" "CMakeFiles/maze-client.dir/l2sap.c.o" "CMakeFiles/maze-client.dir/maze.c.o" "CMakeFiles/maze-client.dir/maze-plot.c.o" -o maze-client
