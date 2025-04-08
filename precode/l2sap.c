@@ -95,9 +95,9 @@ int l2sap_sendto( L2SAP* client, const uint8_t* data, int len )
     header->len = htons(len + sizeof(L2Header));
     header-> checksum = 0; // Initialize to 0 and compute checksum value later
     header->mbz = 0;
+    memcpy(frame + sizeof(L2Header), data, len);
     uint8_t temp_checksum = compute_checksum(frame, sizeof(L2Header) + len);
     header->checksum = temp_checksum;
-    memcpy(frame + sizeof(L2Header), data, len);
 
     fprintf(stderr, "L2_sendto: size of header + len: %lu\n", ((int) len + sizeof(L2Header)));
 
