@@ -92,19 +92,16 @@ int l2sap_sendto( L2SAP* client, const uint8_t* data, int len )
     L2Header* header = (L2Header*) frame;
     
     header->dst_addr = client->peer_addr.sin_addr.s_addr;
-    header->len = htons(len + sizeof(L2Header));
+    header->len = htons(len);
     header-> checksum = 0; // Initialize to 0 and compute checksum value later
     header->mbz = 0;
+    uint8_t temp_checksum = 
     memcpy(frame + sizeof(L2Header), data, len);
-    
-    uint8_t temp_checksum = compute_checksum(frame, sizeof(L2Header) + len);
-    fprintf(stderr, "L2_sendto: value of checksum: %hhu\n", temp_checksum);
-    header->checksum = temp_checksum;
+
+    header->checksum = compute_checksum(frame, sizeof(L2Header) + len);
 
     fprintf(stderr, "L2_sendto: size of header + len: %lu\n", ((int) len + sizeof(L2Header)));
 
-    fprintf(stderr, "L2_sendto: size of header: %lu\n", sizeof(header));
-    fprintf(stderr, "L2_sendto: size of len: %d\n", len);
     int bytes_sent = sendto(
         client->socket,
         frame,
