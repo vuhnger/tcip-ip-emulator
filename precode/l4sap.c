@@ -102,6 +102,22 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
         return -1;
     }
 
+    if (len > L4Payloadsize)
+    {
+        fprintf(stderr, "L4SAP_send: Payload is too large!\n");
+        len = L4Payloadsize;
+    }
+
+    uint8_t frame[L4Payloadsize + sizeof(L4Header)];
+    L4Header *header = (L4Header *)frame;
+
+    header->type = L4_DATA;
+    header->seqno = l4->next_send_seq;
+    header->ackno = l4->expected_recv_seq;
+    header->mbz = 0;
+    memcpy(frame + sizeof(L4Header), data, len);
+
+    //missing rest of func
 
 
     return L4_QUIT;
