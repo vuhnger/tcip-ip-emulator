@@ -130,6 +130,11 @@ int l2sap_sendto(L2SAP *client, const uint8_t *data, int len)
         return -1;
     }
 
+    fprintf(stderr, "DEBUG: Sending frame of size %d to %s:%d\n", 
+        (int)(len + sizeof(L2Header)),
+        inet_ntoa(client->peer_addr.sin_addr),
+        ntohs(client->peer_addr.sin_port));
+
     return len;
 }
 
@@ -214,12 +219,12 @@ int l2sap_recvfrom_timeout(L2SAP *client, uint8_t *data, int len, struct timeval
 
     int payload_len = ntohs(header->len);
 
-    if (sizeof(L2Header) + payload_len != bytes_received)
+    if (payload_len != bytes_received)
     {
         fprintf(stderr, "L2SAP_recvfrom_timeout: header indicates payload size %d, but received %d\n",
-                payload_len, (int)(bytes_received - sizeof(L2Header)));
+                payload_len, (int)(bytes_received));
         // Don't fail - the server may include header size in len field
-        payload_len = bytes_received - sizeof(L2Header);
+        payload_len = bytes_received;
     }
 
     // Verify checksum
