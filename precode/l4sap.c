@@ -15,8 +15,62 @@
  */
 L4SAP *l4sap_create(const char *server_ip, int server_port)
 {
-    fprintf(stderr, "%s has not been implemented yet\n", __FUNCTION__);
-    return NULL;
+    fprintf(stderr, "DEBUG: l4sap_create called with server_ip=%s, port=%d\n",
+            server_ip, server_port);
+
+    if (server_ip == NULL || server_port <= 0)
+    {
+        fprintf(stderr, "L4SAP: Invalid parameters.\n");
+        return NULL;
+    }
+
+    // Allocate memory for L4SAP structure
+    fprintf(stderr, "DEBUG: Allocating L4SAP structure\n");
+    L4SAP *l4 = malloc(sizeof(L4SAP));
+    if (!l4)
+    {
+        fprintf(stderr, "L4SAP: failed to allocate memory for L4SAP.\n");
+        return NULL;
+    }
+
+    // Create L2SAP instance
+    fprintf(stderr, "DEBUG: Creating L2SAP instance\n");
+    l4->l2 = l2sap_create(server_ip, server_port);
+    if (l4->l2 == NULL)
+    {
+        fprintf(stderr, "L4SAP: failed to create L2SAP.\n");
+        l2sap_destroy(l4->l2);
+        free(l4);
+        return NULL;
+    }
+
+    // Initialize L4SAP fields
+    fprintf(stderr, "DEBUG: Initializing L4SAP fields\n");
+    l4->next_send_seq = 0;
+    l4->expected_recv_seq = 0;
+    l4->is_terminating = 0;
+    l4->send_state.length = 0;
+    l4->send_state.last_ack_recieved = 0;
+    l4->recv_state.last_seqno_recieved = 0;
+    l4->recv_state.last_ack_sent = 0;
+
+    fprintf(stderr, "DEBUG: Initializing send_state buffer\n");
+    // Check that send_state.buffer exists before using memset
+    fprintf(stderr, "DEBUG: Size of buffer = %zu\n", sizeof(l4->send_state.buffer));
+
+    // Initialize send_state buffer
+    memset(l4->send_state.buffer, 0, sizeof(l4->send_state.buffer));
+
+    // Initialize L4Header
+    fprintf(stderr, "DEBUG: Setting up L4Header\n");
+    L4Header *header = (L4Header *)l4->send_state.buffer;
+    header->type = 0;
+    header->seqno = l4->next_send_seq;
+    header->ackno = l4->expected_recv_seq;
+    header->mbz = 0;
+
+    fprintf(stderr, "DEBUG: l4sap_create completed successfully\n");
+    return l4;
 }
 
 /* The functions sends a packet to the network. The packet's payload
@@ -42,7 +96,14 @@ L4SAP *l4sap_create(const char *server_ip, int server_port)
  */
 int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
 {
-    fprintf(stderr, "%s has not been implemented yet\n", __FUNCTION__);
+    if (l4 == NULL || data == NULL || len < 0)
+    {
+        fprintf(stderr, "L4SAP_send: Invalid parameters.\n");
+        return -1;
+    }
+
+
+
     return L4_QUIT;
 }
 
