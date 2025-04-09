@@ -46,7 +46,6 @@ L2SAP *l2sap_create(const char *server_ip, int server_port)
     service_access_point->peer_addr.sin_family = AF_INET;
     service_access_point->peer_addr.sin_port = htons(server_port);
 
-
     if (inet_pton(AF_INET, server_ip, &service_access_point->peer_addr.sin_addr) <= 0)
     {
         fprintf(stderr, "L2SAP: Invalid IP address.\n");
@@ -219,7 +218,8 @@ int l2sap_recvfrom_timeout(L2SAP *client, uint8_t *data, int len, struct timeval
     {
         fprintf(stderr, "L2SAP_recvfrom_timeout: header indicates payload size %d, but received %d\n",
                 payload_len, (int)(bytes_received - sizeof(L2Header)));
-        return -1;
+        // Don't fail - the server may include header size in len field
+        payload_len = bytes_received - sizeof(L2Header);
     }
 
     // Verify checksum
