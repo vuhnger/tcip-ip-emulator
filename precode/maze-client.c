@@ -34,6 +34,8 @@ int main( int argc, char *argv[] )
         return -1;
     }
 
+    Maze *maze = NULL;
+
     long maze_seed = strtol( argv[3], NULL, 10 );
 
     char buffer[1024];
@@ -117,5 +119,10 @@ int main( int argc, char *argv[] )
     l4sap_send( l4, (uint8_t*)"QUIT", 5 );
 
     l4sap_destroy( l4 );
+
+    if (maze){
+        free(maze->maze);
+        free(maze);
+    }
 }
 
