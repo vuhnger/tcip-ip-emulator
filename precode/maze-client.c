@@ -68,7 +68,7 @@ int main( int argc, char *argv[] )
         }
         else
         {
-            Maze* maze = (Maze*)malloc( sizeof(Maze) );
+            maze = (Maze*)malloc( sizeof(Maze) );
             if( maze == NULL )
             {
                 fprintf( stderr, "%s: Could not allocate a Maze structure\n", __FUNCTION__ );
