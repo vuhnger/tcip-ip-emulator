@@ -13,12 +13,10 @@
 static uint8_t compute_checksum(const uint8_t *frame, int len)
 {
     uint8_t checksum = 0;
-
     for (int i = 0; i < len; ++i)
     {
         checksum ^= frame[i];
     }
-
     return checksum;
 }
 
