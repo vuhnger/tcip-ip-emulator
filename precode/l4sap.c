@@ -130,8 +130,8 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
     struct timeval timeout;
     
     while (transmission_attempts < max_attempts) {
-        // Adaptive timeout based on packet size and attempt number
-        timeout.tv_sec = (len > 256) ? (1 + (transmission_attempts < 2 ? transmission_attempts : 2)) : 1;
+        
+        timeout.tv_sec = 1;
         timeout.tv_usec = 0;
         
         fprintf(stderr, "L4SAP_send: Sending packet with seqno=%d (attempt %d, timeout=%lds)\n", 
@@ -383,7 +383,7 @@ int l4sap_recv(L4SAP *l4, uint8_t *data, int len)
                     
                     // Small delay between duplicate ACKs if sending multiple
                     if (i < ack_attempts - 1) {
-                        usleep(10000);  // 10ms delay
+                        usleep(1000);  // 1ms delay
                     }
                 }
                 
