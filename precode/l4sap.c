@@ -295,11 +295,11 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
 int l4sap_recv(L4SAP *l4, uint8_t *data, int len)
 {
     if (l4 == NULL || data == NULL || len <= 0) {
-        fprintf(stderr, "L4SAP_recv: Invalid parameters.\n");
+        fprintf(stderr, "%s: Invalid parameters.\n", __FUNCTION__);
         return -1;
     }
     
-    fprintf(stderr, "L4SAP_recv: Waiting for data...\n");
+    fprintf(stderr, "%s: Waiting for data...\n", __FUNCTION__);
     
     uint8_t frame[L4Framesize];
     int copy_len = 0;
