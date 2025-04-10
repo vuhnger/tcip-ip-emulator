@@ -5,13 +5,6 @@
 
 #include "maze.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-
-#include "maze.h"
-
 // Queue structure for BFS
 typedef struct {
     int x;
@@ -125,10 +118,29 @@ void mazeSolve(struct Maze* maze) {
         return;
     }
     
+    // Print diagnostic information about the received maze
+    fprintf(stderr, "mazeSolve: Processing maze with edgeLen=%u, size=%u\n", 
+            maze->edgeLen, maze->size);
+    fprintf(stderr, "mazeSolve: Start=(%u,%u), End=(%u,%u)\n",
+            maze->startX, maze->startY, maze->endX, maze->endY);
+    
+    // Look for markers in the maze
+    char start_cell = maze->maze[maze->startY * maze->edgeLen + maze->startX];
+    char end_cell = maze->maze[maze->endY * maze->edgeLen + maze->endX];
+    fprintf(stderr, "mazeSolve: Start cell value: 0x%02x, End cell value: 0x%02x\n", 
+            (unsigned char)start_cell, (unsigned char)end_cell);
+    
     // Check maze parameters
     if (maze->edgeLen == 0 || maze->size != maze->edgeLen * maze->edgeLen) {
         fprintf(stderr, "mazeSolve: Invalid maze dimensions\n");
-        return;
+        // Try to fix the size if it doesn't match
+        if (maze->edgeLen > 0) {
+            fprintf(stderr, "mazeSolve: Correcting size from %u to %u\n", 
+                    maze->size, maze->edgeLen * maze->edgeLen);
+            maze->size = maze->edgeLen * maze->edgeLen;
+        } else {
+            return;
+        }
     }
     
     // Check start and end coordinates
@@ -156,6 +168,31 @@ void mazeSolve(struct Maze* maze) {
     
     if (result) {
         fprintf(stderr, "mazeSolve: Solution found with BFS (shortest path)!\n");
+        
+        // Verify the solution by checking if start and end points are marked
+        char start_marked = maze->maze[maze->startY * maze->edgeLen + maze->startX];
+        char end_marked = maze->maze[maze->endY * maze->edgeLen + maze->endX];
+        fprintf(stderr, "mazeSolve: Start cell marked: 0x%02x, End cell marked: 0x%02x\n", 
+                (unsigned char)start_marked, (unsigned char)end_marked);
+        
+        // Verify start and end have mark bit set
+        if (!(start_marked & mark)) {
+            fprintf(stderr, "mazeSolve: WARNING - Start cell not marked! Adding mark.\n");
+            maze->maze[maze->startY * maze->edgeLen + maze->startX] |= mark;
+        }
+        if (!(end_marked & mark)) {
+            fprintf(stderr, "mazeSolve: WARNING - End cell not marked! Adding mark.\n");
+            maze->maze[maze->endY * maze->edgeLen + maze->endX] |= mark;
+        }
+        
+        // Count marked cells to verify solution
+        int marked_count = 0;
+        for (uint32_t i = 0; i < maze->size; i++) {
+            if (maze->maze[i] & mark) {
+                marked_count++;
+            }
+        }
+        fprintf(stderr, "mazeSolve: Solution path has %d marked cells\n", marked_count);
     } else {
         fprintf(stderr, "mazeSolve: No solution exists for this maze\n");
         
@@ -163,6 +200,13 @@ void mazeSolve(struct Maze* maze) {
         memcpy(maze->maze, mazeCopy, maze->size);
     }
     
+    // Clear any temporary marks that might confuse the server
+    for (uint32_t i = 0; i < maze->size; i++) {
+        maze->maze[i] &= ~tmark;  // Clear temporary mark bit
+    }
+    
     // Free the maze backup
     free(mazeCopy);
+    
+    fprintf(stderr, "mazeSolve: Completed - maze ready to be sent back\n");
 }

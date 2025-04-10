@@ -163,7 +163,6 @@ int l2sap_recvfrom(L2SAP *client, uint8_t *data, int len)
  */
 int l2sap_recvfrom_timeout(L2SAP *client, uint8_t *data, int len, struct timeval *timeout)
 {
-
     if (client == NULL || data == NULL || len <= 0)
     {
         fprintf(stderr, "L2SAP_recvfrom_timeout: Invalid parameters.\n");
@@ -217,14 +216,29 @@ int l2sap_recvfrom_timeout(L2SAP *client, uint8_t *data, int len, struct timeval
 
     L2Header *header = (L2Header *)frame;
 
-    int payload_len = ntohs(header->len);
+    // Get total frame length from header (including header itself)
+    int total_len = ntohs(header->len);
+    
+    // Calculate payload length by subtracting header size
+    int payload_len = total_len - sizeof(L2Header);
+    
+    if (payload_len < 0) {
+        fprintf(stderr, "L2SAP_recvfrom_timeout: invalid payload length (%d)\n", payload_len);
+        return -1;
+    }
 
-    if (payload_len != bytes_received)
+    if (total_len != bytes_received)
     {
-        fprintf(stderr, "L2SAP_recvfrom_timeout: header indicates payload size %d, but received %d\n",
-                payload_len, (int)(bytes_received));
-        // Don't fail - the server may include header size in len field
-        payload_len = bytes_received;
+        fprintf(stderr, "L2SAP_recvfrom_timeout: header indicates total size %d, but received %d\n",
+                total_len, (int)(bytes_received));
+        
+        // Adjust payload length based on actual received bytes
+        payload_len = bytes_received - sizeof(L2Header);
+        
+        if (payload_len < 0) {
+            fprintf(stderr, "L2SAP_recvfrom_timeout: calculated negative payload length\n");
+            return -1;
+        }
     }
 
     // Verify checksum
@@ -242,9 +256,14 @@ int l2sap_recvfrom_timeout(L2SAP *client, uint8_t *data, int len, struct timeval
 
     client->peer_addr = sender_addr;
 
+    // Only copy up to the payload length or buffer capacity, whichever is smaller
     int copy_len = payload_len < len ? payload_len : len;
-    memcpy(data, frame + sizeof(L2Header), copy_len);
+    
+    if (copy_len > 0) {
+        memcpy(data, frame + sizeof(L2Header), copy_len);
+    }
 
+    // Return the actual payload length copied
     return copy_len;
 }
 
