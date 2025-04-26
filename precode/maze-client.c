@@ -26,13 +26,15 @@ void usage( const char* name )
 int main( int argc, char *argv[] )
 {
     if( argc != 4 ) usage( argv[0] );
-
+    
     L4SAP* l4 = l4sap_create( argv[1], atoi(argv[2]) );
     if( !l4 )
     {
         fprintf( stderr, "%s: Failed to create server\n", __FUNCTION__ );
         return -1;
     }
+    
+    Maze *maze = NULL;
 
     long maze_seed = strtol( argv[3], NULL, 10 );
 
@@ -48,6 +50,7 @@ int main( int argc, char *argv[] )
     }
 
     retval = l4sap_recv( l4, (uint8_t*)buffer, 1024 );
+    fprintf(stderr, "%s: Client recieved %d bytes\n", __FUNCTION__, retval);
     if( retval < 0 )
     {
         fprintf( stderr, "%s: Failed to receive data (error)\n", __FUNCTION__ );
@@ -66,7 +69,7 @@ int main( int argc, char *argv[] )
         }
         else
         {
-            Maze* maze = (Maze*)malloc( sizeof(Maze) );
+            maze = (Maze*)malloc( sizeof(Maze) );
             if( maze == NULL )
             {
                 fprintf( stderr, "%s: Could not allocate a Maze structure\n", __FUNCTION__ );
@@ -117,5 +120,10 @@ int main( int argc, char *argv[] )
     l4sap_send( l4, (uint8_t*)"QUIT", 5 );
 
     l4sap_destroy( l4 );
+
+    if (maze){
+        free(maze->maze);
+        free(maze);
+    }
 }
 

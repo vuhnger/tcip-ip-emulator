@@ -10,17 +10,68 @@
  * l2_recvfrom_timeout to compute the 1-byte checksum both
  * on sending and receiving and L2 frame.
  */
-static uint8_t compute_checksum( const uint8_t* frame, int len );
-
-L2SAP* l2sap_create( const char* server_ip, int server_port )
+static uint8_t compute_checksum(const uint8_t *frame, int len)
 {
-    fprintf( stderr, "%s has not been implemented yet\n", __FUNCTION__ );
-    return NULL;
+    uint8_t checksum = 0;
+    for (int i = 0; i < len; ++i)
+    {
+        checksum ^= frame[i];
+    }
+    return checksum;
 }
 
-void l2sap_destroy(L2SAP* client)
+L2SAP *l2sap_create(const char *server_ip, int server_port)
 {
-    fprintf( stderr, "%s has not been implemented yet\n", __FUNCTION__ );
+    // Allocate memory for L2SAP structure
+    L2SAP *service_access_point = malloc(sizeof(struct L2SAP));
+    if (!service_access_point)
+    {
+        fprintf(stderr, "%s: failed to allocate memory for service_access_point.\n", __FUNCTION__);
+        return NULL;
+    }
+
+    // Create UDP socket
+    service_access_point->socket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (service_access_point->socket < 0)
+    {
+        fprintf(stderr, "%s: failed to create socket.\n", __FUNCTION__);
+        free(service_access_point);
+        return NULL;
+    }
+
+    // Set up peer address (for sending data to server)
+    memset(&service_access_point->peer_addr, 0, sizeof(service_access_point->peer_addr));
+    service_access_point->peer_addr.sin_family = AF_INET;
+    service_access_point->peer_addr.sin_port = htons(server_port);
+
+    if (inet_pton(AF_INET, server_ip, &service_access_point->peer_addr.sin_addr) <= 0)
+    {
+        fprintf(stderr, "%s: Invalid IP address.\n", __FUNCTION__);
+        close(service_access_point->socket);
+        free(service_access_point);
+        return NULL;
+    }
+
+    // Set up local address (for binding)
+    struct sockaddr_in local_addr;
+    memset(&local_addr, 0, sizeof(local_addr));
+    local_addr.sin_family = AF_INET;
+    local_addr.sin_addr.s_addr = INADDR_ANY; // Listen on any local interface
+    local_addr.sin_port = 0;                 // Let the OS choose a port
+
+    // Bind socket to local address for receiving responses
+    int ret;
+    ret = bind(service_access_point->socket, (struct sockaddr *)&local_addr, sizeof(local_addr));
+    if (ret < 0)
+    {
+        fprintf(stderr, "%s: binding failed.\n", __FUNCTION__);
+        close(service_access_point->socket);
+        free(service_access_point);
+        return NULL;
+    }
+    fprintf(stderr, "%s: bound socket to address %s\n", __FUNCTION__, inet_ntoa(local_addr.sin_addr));
+
+    return service_access_point;
 }
 
 /* l2sap_sendto sends data over UDP, using the given UDP socket
@@ -32,18 +83,69 @@ void l2sap_destroy(L2SAP* client)
  * When the payload length and the L2Header together exceed
  * the maximum frame size L2Framesize, l2_sendto fails.
  */
-int l2sap_sendto( L2SAP* client, const uint8_t* data, int len )
+int l2sap_sendto(L2SAP *client, const uint8_t *data, int len)
 {
-    fprintf( stderr, "%s has not been implemented yet\n", __FUNCTION__ );
-    return -1;
+    if (client == NULL || data == NULL || len < 0)
+    {
+        fprintf(stderr, "%s: Invalid parameters.\n", __FUNCTION__);
+        return -1;
+    }
+
+    if (len + sizeof(L2Header) > L2Framesize)
+    {
+        fprintf(stderr, "%s: Payload is too large!\n", __FUNCTION__);
+        return -1;
+    }
+
+    uint8_t frame[L2Framesize];
+    L2Header *header = (L2Header *)frame;
+
+    const int PACKET_SIZE = len + sizeof(L2Header);
+
+    header->dst_addr = client->peer_addr.sin_addr.s_addr;
+    header->len = htons(PACKET_SIZE); // Uncertain about this
+    header->checksum = 0; // Initialize to 0 and compute checksum value later
+    header->mbz = 0;
+    memcpy(frame + sizeof(L2Header), data, len);
+    uint8_t temp_checksum = compute_checksum(frame, sizeof(L2Header) + len);
+    header->checksum = temp_checksum;
+
+    fprintf(stderr, "%s: size of payload + header: %d\n", __FUNCTION__, PACKET_SIZE);
+
+    int bytes_sent = sendto(
+        client->socket,
+        frame,
+        PACKET_SIZE,
+        0,
+        (struct sockaddr *)&client->peer_addr, sizeof(client->peer_addr));
+
+    if (bytes_sent < 0)
+    {
+        fprintf(stderr, "%s: failed to send bytes, sent %d.\n", __FUNCTION__, bytes_sent);
+        return -1;
+    }
+
+    if (bytes_sent != sizeof(L2Header) + len)
+    {
+        fprintf(stderr, "%s: sent %d bytes but expected %d\n", __FUNCTION__, bytes_sent, PACKET_SIZE);
+        return -1;
+    }
+
+    fprintf(stderr, "%s Sending frame of size %d to %s:%d\n", 
+        __FUNCTION__,
+        bytes_sent,
+        inet_ntoa(client->peer_addr.sin_addr),
+        ntohs(client->peer_addr.sin_port));
+
+    return len;
 }
 
 /* Convenience function. Calls l2sap_recvfrom_timeout with NULL timeout
  * to make it waits endlessly.
  */
-int l2sap_recvfrom( L2SAP* client, uint8_t* data, int len )
+int l2sap_recvfrom(L2SAP *client, uint8_t *data, int len)
 {
-    return l2sap_recvfrom_timeout( client, data, len, NULL );
+    return l2sap_recvfrom_timeout(client, data, len, NULL);
 }
 
 /* l2sap_recvfrom_timeout waits for data from a remote UDP sender, but
@@ -61,9 +163,152 @@ int l2sap_recvfrom( L2SAP* client, uint8_t* data, int len )
  * which has the value 0.
  * It returns -1 in case of error.
  */
-int l2sap_recvfrom_timeout( L2SAP* client, uint8_t* data, int len, struct timeval* timeout )
+int l2sap_recvfrom_timeout(L2SAP *client, uint8_t *data, int len, struct timeval *timeout)
 {
-    fprintf( stderr, "%s has not been implemented yet\n", __FUNCTION__ );
-    return -1;
+    if (client == NULL || data == NULL || len <= 0)
+    {
+        fprintf(stderr, "%s: Invalid parameters.\n", __FUNCTION__);
+        return -1;
+    }
+
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(client->socket, &readfds);
+
+    struct timeval timeout_copy;
+    if (timeout != NULL)
+    {
+        timeout_copy = *timeout;
+        fprintf(stderr, "%s: setting timeout to %ld\n", __FUNCTION__, timeout->tv_sec);
+    }
+
+    // socket + 1 must be passed because file descriptors are 0 indexed, checking 0 to socket-1
+    int select_result = select(client->socket + 1, &readfds, NULL, NULL,
+                               timeout ? &timeout_copy : NULL);
+
+    fprintf(stderr, "%s: seleted result is %d\n", __FUNCTION__, select_result);
+
+    if (select_result < 0)
+    {
+        fprintf(stderr, "%s: select call failed\n", __FUNCTION__);
+        return -1;
+    }
+
+    if (select_result == 0)
+    {
+        fprintf(stderr, "%s: L2_TIMEOUT\n", __FUNCTION__);
+        return L2_TIMEOUT;
+    }
+
+    uint8_t frame[L2Framesize];
+
+    struct sockaddr_in sender_addr;
+    socklen_t sender_addr_len = sizeof(sender_addr);
+
+    int bytes_received = recvfrom(client->socket, frame, L2Framesize, 0,
+                                  (struct sockaddr *)&sender_addr, &sender_addr_len);
+
+    if (bytes_received < 0)
+    {
+        fprintf(stderr, "L2SAP_recvfrom_timeout: recvfrom call failed\n");
+        return -1;
+    }
+
+    if (bytes_received < sizeof(L2Header))
+    {
+        fprintf(stderr, "L2SAP_recvfrom_timeout: received frame too small (%d bytes)\n",
+                bytes_received);
+        return -1;
+    }
+
+    fprintf(stderr, "%s: recieved %d bytes\n", __FUNCTION__, bytes_received);
+
+    L2Header *header = (L2Header *)frame;
+
+    // Get total frame length from header (including header itself)
+    int total_len = ntohs(header->len);
+    
+    // Calculate payload length by subtracting header size
+    int payload_len = total_len - sizeof(L2Header);
+    
+    if (payload_len < 0) {
+        fprintf(stderr, "%s: invalid payload length (%d)\n", __FUNCTION__, payload_len);
+        return -1;
+    }
+
+    if (total_len != bytes_received)
+    {
+        fprintf(stderr, "%s: header indicates total size %d, but received %d\n",
+                __FUNCTION__,
+                total_len,
+                (int)(bytes_received)
+            );
+        
+        // Adjust payload length based on actual received bytes
+        payload_len = bytes_received - sizeof(L2Header);
+        
+        if (payload_len < 0) {
+            fprintf(stderr, "%s: calculated negative payload length\n", __FUNCTION__);
+            return -1;
+        }
+    }
+
+    fprintf(stderr, "%s: payload length (packet size - header size) is %d\n", __FUNCTION__, payload_len);
+
+    // Verify checksum
+    uint8_t received_checksum = header->checksum;
+    header->checksum = 0; // Zero out for checksum calculation
+
+    uint8_t calculated_checksum = compute_checksum(frame, bytes_received);
+
+    if (calculated_checksum != received_checksum)
+    {
+        fprintf(stderr, "%s: checksum verification failed (got %02x, expected %02x)\n",
+                __FUNCTION__,
+                calculated_checksum,
+                received_checksum
+            );
+        return -1;
+    }
+
+    client->peer_addr = sender_addr;
+
+    // Only copy up to the payload length or buffer capacity, whichever is smaller
+    int copy_len;
+    
+    if (payload_len < len){
+        copy_len = payload_len;
+    }else{
+        payload_len = len;
+    }
+
+    if (copy_len > 0) {
+        memcpy(data, frame + sizeof(L2Header), copy_len);
+    }
+
+    // Return the actual payload length copied
+    return copy_len;
 }
 
+/*
+ * Destroy an L2SAP instance and free all associated resources.
+ */
+void l2sap_destroy(L2SAP *client)
+{
+    if (client == NULL)
+    {
+        fprintf(stderr, "%s: client was null\n", __FUNCTION__);
+        return;
+    }
+
+    // Close the socket if it's valid
+    if (client->socket >= 0)
+    {
+        fprintf(stderr, "%s: closing socket\n", __FUNCTION__);
+        close(client->socket);
+    }
+
+    // Free the structure itself
+    fprintf(stderr, "%s: freenig client memory\n", __FUNCTION__);
+    free(client);
+}

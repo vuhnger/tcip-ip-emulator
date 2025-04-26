@@ -89,9 +89,23 @@ typedef struct L4SAP L4SAP;
  */
 struct L4SAP
 {
-    /*
-     * Your choice.
-     */
+    L2SAP* l2;
+
+    uint8_t next_send_seq;
+    uint8_t expected_recv_seq;
+
+    int is_terminating;
+
+    struct {
+        uint8_t buffer[L4Payloadsize];
+        int length;
+        uint8_t last_ack_recieved;
+    } send_state;
+
+    struct{
+        uint8_t last_seqno_recieved;
+        uint8_t last_ack_sent;
+    } recv_state;
 };
 
 
@@ -137,7 +151,7 @@ int l4sap_send( L4SAP* l4, const uint8_t* data, int len );
  * appropriate ACK. When the received DATA packet is a
  * retransmission, l4sap_recv does not return to the caller
  * but continues to wait for a new DATA packet.
- * 
+ *
  * While l4sap_recv waits for DATA, it can also receive ACK
  * and RESET packets.
  *
