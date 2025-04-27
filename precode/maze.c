@@ -55,16 +55,15 @@ static int solveMazeBFS(struct Maze* maze) {
     int endFound = 0;
     int target_idx = -1;
     
-    // BFS loop
+    // BFS
     while (headIndex < tailIndex && !endFound) {
-        // Get current cell
+        
         int curr_x = queue[headIndex].x;
         int curr_y = queue[headIndex].y;
         int curr_idx = curr_y * maze->edgeLen + curr_x;
         
-        // Check all four directions
+        // check all four directions
         for (int dir = 0; dir < 4; dir++) {
-            // If no passage in this direction, skip
 
             int isValidDirection = maze->maze[curr_idx] & directions[dir].bit;
 
@@ -97,23 +96,18 @@ static int solveMazeBFS(struct Maze* maze) {
         headIndex++;
     }
     
-    // If target endFound, trace back the path and mark it
     if (endFound) {
-        // Start from the target and go back to the start
+        // mark path
         int curr = target_idx;
         while (curr != -1) {
             int x = queue[curr].x;
             int y = queue[curr].y;
-            // Mark the cell as part of the path
             maze->maze[y * maze->edgeLen + x] |= mark;
             curr = queue[curr].prevIndex;
         }
     }
-    
-    // Free allocated memory
     free(visited);
     free(queue);
-    
     return endFound;
 }
 
