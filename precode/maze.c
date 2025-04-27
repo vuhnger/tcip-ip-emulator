@@ -65,36 +65,38 @@ static int solveMazeBFS(struct Maze* maze) {
         
         // Check all four directions
         for (int dir = 0; dir < 4; dir++) {
-            // Check if passage exists in this direction
-            if (maze->maze[curr_idx] & directions[dir].bit) {
-                int new_x = curr_x + directions[dir].dx;
-                int new_y = curr_y + directions[dir].dy;
-                
-                // Check if the new position is valid
-                if (new_x >= 0 && new_x < maze->edgeLen && 
-                    new_y >= 0 && new_y < maze->edgeLen) {
-                    
-                    int new_idx = new_y * maze->edgeLen + new_x;
-                    
-                    // Check if not visited
-                    if (!visited[new_idx]) {
-                        // Add to queue
-                        queue[tailIndex].x = new_x;
-                        queue[tailIndex].y = new_y;
-                        queue[tailIndex].prevIndex = headIndex;
-                        visited[new_idx] = 1;
-                        
-                        // Check if we found the target
-                        if (new_x == maze->endX && new_y == maze->endY) {
-                            found = 1;
-                            target_idx = tailIndex;
-                            break;
-                        }
-                        
-                        tailIndex++;
-                    }
-                }
+            // If no passage in this direction, skip
+            if (!(maze->maze[curr_idx] & directions[dir].bit))
+                continue;
+            
+            int new_x = curr_x + directions[dir].dx;
+            int new_y = curr_y + directions[dir].dy;
+
+            // If new position is out of bounds, skip
+            if (new_x < 0 || new_x >= maze->edgeLen || 
+                new_y < 0 || new_y >= maze->edgeLen)
+                continue;
+
+            int new_idx = new_y * maze->edgeLen + new_x;
+
+            // If already visited, skip
+            if (visited[new_idx])
+                continue;
+
+            // Add to queue
+            queue[tailIndex].x = new_x;
+            queue[tailIndex].y = new_y;
+            queue[tailIndex].prevIndex = headIndex;
+            visited[new_idx] = 1;
+
+            // Check if target found
+            if (new_x == maze->endX && new_y == maze->endY) {
+                found = 1;
+                target_idx = tailIndex;
+                break;
             }
+
+            tailIndex++;
         }
         
         headIndex++;
