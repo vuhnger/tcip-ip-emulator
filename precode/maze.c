@@ -9,35 +9,48 @@
 typedef struct {
     int x;
     int y;
-    int prev;  // Index of previous cell in queue
-} QueueNode;
+    int prevIndex;  // Index of previous cell in queue
+} Cell;
+
+
 
 // Solve maze using BFS (Breadth-First Search)
 static int solveMazeBFS(struct Maze* maze) {
     // Allocate visited array to avoid revisiting cells
     char* visited = calloc(maze->size, sizeof(char));
     if (!visited) {
-        fprintf(stderr, "solveMazeBFS: Memory allocation failed for visited array\n");
+        fprintf(stderr, "%s: memory allocation failed for visited\n", __FUNCTION__);
         return 0;
     }
     
     // Allocate queue for BFS
-    QueueNode* queue = malloc(maze->size * sizeof(QueueNode));
+    Cell* queue = malloc(maze->size * sizeof(Cell));
     if (!queue) {
-        fprintf(stderr, "solveMazeBFS: Memory allocation failed for queue\n");
+        fprintf(stderr, "%s: memory allocation failed for queue\n", __FUNCTION__);
         free(visited);
         return 0;
     }
-    
-    // Initialize queue with starting position
-    int front = 0;
-    int rear = 1;
+
+    int headIndex = 0;
+    int tailIndex = 1;
     queue[0].x = maze->startX;
     queue[0].y = maze->startY;
-    queue[0].prev = -1;  // No previous node for start
+    queue[0].prevIndex = -1;
     
-    // Mark starting position as visited
+    // position = y * _edgeLen + x
+    // mark start as visited
     visited[maze->startY * maze->edgeLen + maze->startX] = 1;
+
+    typedef struct {
+    int dx, dy, bit;
+    } Direction;
+
+    Direction directions[] = {
+        {1, 0, right},   // move right
+        {0, 1, down},    // move down
+        {-1, 0, left},   // move left
+        {0, -1, up}      // move up
+    };
     
     // Direction arrays for moving right, down, left, up
     int dx[] = {1, 0, -1, 0};
@@ -49,10 +62,10 @@ static int solveMazeBFS(struct Maze* maze) {
     int target_idx = -1;
     
     // BFS loop
-    while (front < rear && !found) {
+    while (headIndex < tailIndex && !found) {
         // Get current cell
-        int curr_x = queue[front].x;
-        int curr_y = queue[front].y;
+        int curr_x = queue[headIndex].x;
+        int curr_y = queue[headIndex].y;
         int curr_idx = curr_y * maze->edgeLen + curr_x;
         
         // Check all four directions
@@ -71,25 +84,25 @@ static int solveMazeBFS(struct Maze* maze) {
                     // Check if not visited
                     if (!visited[new_idx]) {
                         // Add to queue
-                        queue[rear].x = new_x;
-                        queue[rear].y = new_y;
-                        queue[rear].prev = front;
+                        queue[tailIndex].x = new_x;
+                        queue[tailIndex].y = new_y;
+                        queue[tailIndex].prevIndex = headIndex;
                         visited[new_idx] = 1;
                         
                         // Check if we found the target
                         if (new_x == maze->endX && new_y == maze->endY) {
                             found = 1;
-                            target_idx = rear;
+                            target_idx = tailIndex;
                             break;
                         }
                         
-                        rear++;
+                        tailIndex++;
                     }
                 }
             }
         }
         
-        front++;
+        headIndex++;
     }
     
     // If target found, trace back the path and mark it
@@ -101,7 +114,7 @@ static int solveMazeBFS(struct Maze* maze) {
             int y = queue[curr].y;
             // Mark the cell as part of the path
             maze->maze[y * maze->edgeLen + x] |= mark;
-            curr = queue[curr].prev;
+            curr = queue[curr].prevIndex;
         }
     }
     
@@ -113,100 +126,36 @@ static int solveMazeBFS(struct Maze* maze) {
 }
 
 void mazeSolve(struct Maze* maze) {
-    if (maze == NULL) {
-        fprintf(stderr, "mazeSolve: Invalid maze pointer\n");
+    
+    if (!maze) {
+        fprintf(stderr, "%s: null maze pointer\n",__FUNCTION__);
         return;
     }
     
-    // Print diagnostic information about the received maze
-    fprintf(stderr, "mazeSolve: Processing maze with edgeLen=%u, size=%u\n", 
-            maze->edgeLen, maze->size);
-    fprintf(stderr, "mazeSolve: Start=(%u,%u), End=(%u,%u)\n",
-            maze->startX, maze->startY, maze->endX, maze->endY);
-    
-    // Look for markers in the maze
-    char start_cell = maze->maze[maze->startY * maze->edgeLen + maze->startX];
-    char end_cell = maze->maze[maze->endY * maze->edgeLen + maze->endX];
-    fprintf(stderr, "mazeSolve: Start cell value: 0x%02x, End cell value: 0x%02x\n", 
-            (unsigned char)start_cell, (unsigned char)end_cell);
-    
-    // Check maze parameters
-    if (maze->edgeLen == 0 || maze->size != maze->edgeLen * maze->edgeLen) {
-        fprintf(stderr, "mazeSolve: Invalid maze dimensions\n");
-        // Try to fix the size if it doesn't match
-        if (maze->edgeLen > 0) {
-            fprintf(stderr, "mazeSolve: Correcting size from %u to %u\n", 
-                    maze->size, maze->edgeLen * maze->edgeLen);
-            maze->size = maze->edgeLen * maze->edgeLen;
-        } else {
-            return;
-        }
+    int hasValidMazeDimensions = maze->edgeLen > 0 && maze->size == maze->edgeLen * maze->edgeLen;
+
+    int hasValidStartEndCoordinates = 
+        maze->startX < maze->edgeLen &&
+        maze->startY < maze->edgeLen &&
+        maze->endX < maze->edgeLen &&
+        maze->endY < maze->edgeLen;
+
+    if (!hasValidMazeDimensions) {
+        fprintf(stderr, "%s: invalid maze dimensions\n", __FUNCTION__);
+        return;
     }
-    
-    // Check start and end coordinates
-    if (maze->startX >= maze->edgeLen || maze->startY >= maze->edgeLen ||
-        maze->endX >= maze->edgeLen || maze->endY >= maze->edgeLen) {
-        fprintf(stderr, "mazeSolve: Start or end position out of bounds\n");
+
+    if (!hasValidStartEndCoordinates) {
+        fprintf(stderr, "%s: invalid start or end position\n", __FUNCTION__);
         return;
     }
     
-    fprintf(stderr, "Solving maze %dx%d from (%d,%d) to (%d,%d) using BFS\n", 
-            maze->edgeLen, maze->edgeLen, 
-            maze->startX, maze->startY, 
-            maze->endX, maze->endY);
-    
-    // Create a backup of the maze in case we need to restore it
-    char* mazeCopy = malloc(maze->size);
-    if (mazeCopy == NULL) {
-        fprintf(stderr, "mazeSolve: Failed to allocate memory for maze backup\n");
-        return;
-    }
-    memcpy(mazeCopy, maze->maze, maze->size);
-    
-    // Solve the maze using breadth-first search
     int result = solveMazeBFS(maze);
     
-    if (result) {
-        fprintf(stderr, "mazeSolve: Solution found with BFS (shortest path)!\n");
-        
-        // Verify the solution by checking if start and end points are marked
-        char start_marked = maze->maze[maze->startY * maze->edgeLen + maze->startX];
-        char end_marked = maze->maze[maze->endY * maze->edgeLen + maze->endX];
-        fprintf(stderr, "mazeSolve: Start cell marked: 0x%02x, End cell marked: 0x%02x\n", 
-                (unsigned char)start_marked, (unsigned char)end_marked);
-        
-        // Verify start and end have mark bit set
-        if (!(start_marked & mark)) {
-            fprintf(stderr, "mazeSolve: WARNING - Start cell not marked! Adding mark.\n");
-            maze->maze[maze->startY * maze->edgeLen + maze->startX] |= mark;
-        }
-        if (!(end_marked & mark)) {
-            fprintf(stderr, "mazeSolve: WARNING - End cell not marked! Adding mark.\n");
-            maze->maze[maze->endY * maze->edgeLen + maze->endX] |= mark;
-        }
-        
-        // Count marked cells to verify solution
-        int marked_count = 0;
-        for (uint32_t i = 0; i < maze->size; i++) {
-            if (maze->maze[i] & mark) {
-                marked_count++;
-            }
-        }
-        fprintf(stderr, "mazeSolve: Solution path has %d marked cells\n", marked_count);
-    } else {
-        fprintf(stderr, "mazeSolve: No solution exists for this maze\n");
-        
-        // Restore original maze without any marks
-        memcpy(maze->maze, mazeCopy, maze->size);
-    }
-    
-    // Clear any temporary marks that might confuse the server
+    // remove temp marks
     for (uint32_t i = 0; i < maze->size; i++) {
-        maze->maze[i] &= ~tmark;  // Clear temporary mark bit
+        maze->maze[i] &= ~tmark;  
     }
     
-    // Free the maze backup
-    free(mazeCopy);
-    
-    fprintf(stderr, "mazeSolve: Completed - maze ready to be sent back\n");
+    fprintf(stderr, "%s: solved maze! ;D\n",__FUNCTION__);
 }
