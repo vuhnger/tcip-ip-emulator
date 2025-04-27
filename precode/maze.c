@@ -52,11 +52,6 @@ static int solveMazeBFS(struct Maze* maze) {
         {0, -1, up}      // move up
     };
     
-    // Direction arrays for moving right, down, left, up
-    int dx[] = {1, 0, -1, 0};
-    int dy[] = {0, 1, 0, -1};
-    int dir_bits[] = {right, down, left, up};
-    
     // Flag to indicate if we found the target
     int found = 0;
     int target_idx = -1;
@@ -71,9 +66,9 @@ static int solveMazeBFS(struct Maze* maze) {
         // Check all four directions
         for (int dir = 0; dir < 4; dir++) {
             // Check if passage exists in this direction
-            if (maze->maze[curr_idx] & dir_bits[dir]) {
-                int new_x = curr_x + dx[dir];
-                int new_y = curr_y + dy[dir];
+            if (maze->maze[curr_idx] & directions[dir].bit) {
+                int new_x = curr_x + directions[dir].dx;
+                int new_y = curr_y + directions[dir].dy;
                 
                 // Check if the new position is valid
                 if (new_x >= 0 && new_x < maze->edgeLen && 
