@@ -71,11 +71,9 @@ L4SAP *l4sap_create(const char *server_ip, int server_port)
  */
 int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
 {
-    if (l4 == NULL || data == NULL || len < 0)
-        return -1;
+    if (l4 == NULL || data == NULL || len < 0) return -1;
 
-    if (len > L4Payloadsize)
-        len = L4Payloadsize;
+    if (len > L4Payloadsize) len = L4Payloadsize;
 
     uint8_t frame[L4Framesize];
     L4Header *header = (L4Header *)frame;
@@ -92,14 +90,12 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
     int attempts = 0;
     struct timeval timeout;
 
-    while (attempts < max_attempts)
-    {
+    while (attempts < max_attempts){
         timeout.tv_sec = 1;
         timeout.tv_usec = 0;
 
         int send_res = l2sap_sendto(l4->l2, frame, sizeof(L4Header) + len);
-        if (send_res < 0)
-        {
+        if (send_res < 0){
             attempts++;
             continue;
         }
@@ -116,13 +112,13 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
                 continue;
 
             L4Header *rcv = (L4Header *)recv_buf;
-            if (rcv->type == L4_RESET)
-            {
+
+            switch (rcv->type){
+            case L4_RESET:
                 l4->is_terminating = 1;
-                return L4_QUIT;
-            }
-            if (rcv->type == L4_ACK)
-            {
+                return L4_QUIT; // caller must free memory
+
+            case L4_ACK:
                 if (rcv->ackno == (1 - l4->next_send_seq))
                 {
                     l4->send_state.last_ack_recieved = rcv->ackno;
@@ -130,13 +126,17 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
                     return len;
                 }
                 continue;
+
+            case L4_DATA:
+                // no intstruction on how to handle, ignores
+            default:
+                continue;
             }
-            // ignore DATA packets
         }
         attempts++;
     }
 
-    return L4_SEND_FAILED;
+    return L4_TIMEOUT;
 }
 
 /* The functions receives a packet from the network. The packet's
@@ -161,21 +161,19 @@ int l4sap_recv(L4SAP *l4, uint8_t *data, int len)
     {
         int recv_result = l2sap_recvfrom_timeout(l4->l2, frame, L4Framesize, NULL);
         if (recv_result < 0)
-        {
-            // drop failed packet and continue
             continue;
-        }
         if (recv_result < sizeof(L4Header))
             continue;
 
         L4Header *recv_header = (L4Header *)frame;
-        if (recv_header->type == L4_RESET)
+
+        switch (recv_header->type)
         {
+        case L4_RESET:
             l4->is_terminating = 1;
             return L4_QUIT;
-        }
-        else if (recv_header->type == L4_DATA)
-        {
+
+        case L4_DATA:
             if (recv_header->seqno == l4->expected_recv_seq)
             {
                 int copy_len = recv_result - sizeof(L4Header);
@@ -214,18 +212,17 @@ int l4sap_recv(L4SAP *l4, uint8_t *data, int len)
                 l2sap_sendto(l4->l2, ack_frame, sizeof(L4Header));
                 continue;
             }
-        }
-        else if (recv_header->type == L4_ACK)
-        {
+
+        case L4_ACK:
             if (recv_header->ackno == (1 - l4->next_send_seq))
                 l4->send_state.last_ack_recieved = recv_header->ackno;
             continue;
-        }
-        else
-        {
+
+        default:
             continue;
         }
     }
+
     return -1;
 }
 
