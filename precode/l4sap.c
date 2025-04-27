@@ -156,8 +156,6 @@ int l4sap_recv(L4SAP *l4, uint8_t *data, int len)
         return -1;
 
     uint8_t frame[L4Framesize];
-    int dup_counter = 0;
-    const int max_duplicates = 10;
 
     while (1)
     {
@@ -206,12 +204,6 @@ int l4sap_recv(L4SAP *l4, uint8_t *data, int len)
             }
             else
             {
-                // duplicate packet: resend ACK
-                dup_counter++;
-                if (dup_counter > max_duplicates)
-                {
-                    // possible connection problem
-                }
                 uint8_t ack_frame[sizeof(L4Header)];
                 L4Header *ack_header = (L4Header *)ack_frame;
                 ack_header->type = L4_ACK;
