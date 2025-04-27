@@ -123,12 +123,24 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
                 {
                     l4->send_state.last_ack_recieved = rcv->ackno;
                     l4->next_send_seq = 1 - l4->next_send_seq;
-                    return len;
+                    return L4_ACK_RECEIVED;
                 }
                 continue;
 
             case L4_DATA:
-                // no intstruction on how to handle, ignores
+                    // ACK the received data
+                    {
+                        uint8_t ack_frame[sizeof(L4Header)];
+                        L4Header *ack_header = (L4Header *)ack_frame;
+                        ack_header->type = L4_ACK;
+                        ack_header->seqno = l4->next_send_seq;  // my send seq
+                        ack_header->ackno = (1 - rcv->seqno);   // acknowledge other side's packet
+                        ack_header->mbz = 0;
+
+                        l2sap_sendto(l4->l2, ack_frame, sizeof(L4Header));
+                        fprintf(stderr, "%s: sending ack for data\n", __FUNCTION__);
+                        continue;
+                    }
             default:
                 continue;
             }
@@ -136,7 +148,7 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
         attempts++;
     }
 
-    return L4_TIMEOUT;
+    return L4_SEND_FAILED;
 }
 
 /* The functions receives a packet from the network. The packet's
