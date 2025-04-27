@@ -128,7 +128,8 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
         fprintf(stderr, "%s: sending seqno=%d (attempt %d/%d)\n",
                 __FUNCTION__, header->seqno, attempts + 1, max_attempts);
 
-        int send_res = l2sap_sendto(l4->l2, frame, sizeof(L4Header) + len);
+        int send_res = l2sap_sendto(l4->l2, frame,
+                                    sizeof(L4Header) + len);
         if (send_res < 0)
         {
             fprintf(stderr, "%s: L2 send failed on attempt %d\n",
@@ -138,21 +139,29 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
         }
 
         uint8_t recv_buf[L4Framesize];
+        int corrupt_count = 0;
+        const int max_corrupt = 3;
         int recv_res;
 
         while (1)
         {
-            recv_res = l2sap_recvfrom_timeout(l4->l2, recv_buf, L4Framesize, &timeout);
+            recv_res = l2sap_recvfrom_timeout(l4->l2,recv_buf,L4Framesize,&timeout);
 
             if (recv_res == L2_TIMEOUT)
             {
-                fprintf(stderr, "%s: timeout waiting for ACK\n", __FUNCTION__);
+                fprintf(stderr, "%s: timeout waiting for ACK\n",
+                        __FUNCTION__);
                 break;
             }
             if (recv_res < 0)
             {
-                fprintf(stderr, "%s: error receiving packet\n", __FUNCTION__);
-                break;
+                if (++corrupt_count >= max_corrupt)
+                {
+                    fprintf(stderr, "%s: too many corrupt pkts, retrying\n",
+                            __FUNCTION__);
+                    break;
+                }
+                continue;
             }
             if (recv_res < sizeof(L4Header))
             {
@@ -195,7 +204,6 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
     return L4_SEND_FAILED;
 }
 
-
 /* The functions receives a packet from the network. The packet's
  * payload is copy into the buffer that it is passed as an argument
  * from the caller at L5.
@@ -221,14 +229,35 @@ int l4sap_recv(L4SAP *l4, uint8_t *data, int len)
     int copy_len = 0;
     int dup_counter = 0;
     const int max_duplicates = 10;
+    int corrupt_counter = 0;
+    const int max_corrupt = 20;
 
     while (1)
     {
         int recv_result = l2sap_recvfrom_timeout(l4->l2, frame, L4Framesize, NULL);
 
+        if (recv_result < 0)
+        {
+            corrupt_counter++;
+            fprintf(stderr, "%s: Ignoring corrupted packet (error  -1, count %d/%d)\n",
+                    __FUNCTION__, corrupt_counter, max_corrupt);
+
+            if (corrupt_counter > max_corrupt)
+            {
+                fprintf(stderr, "%s: too many corrupt packets (%d)\n",
+                        __FUNCTION__, corrupt_counter);
+                return -1;
+            }
+
+            continue;
+        }
+
+        corrupt_counter = 0;
+
         if (recv_result < sizeof(L4Header))
         {
-            fprintf(stderr, "%s: Received packet too small or error\n", __FUNCTION__);
+            fprintf(stderr, "%s: Received packet too small\n",
+                    __FUNCTION__);
             continue;
         }
 
@@ -237,11 +266,13 @@ int l4sap_recv(L4SAP *l4, uint8_t *data, int len)
         if (recv_header->type == L4_RESET)
         {
             fprintf(stderr, "%s: Received RESET packet\n", __FUNCTION__);
+
             l4->is_terminating = 1;
             return L4_QUIT;
         }
         else if (recv_header->type == L4_DATA)
         {
+
             if (recv_header->seqno == l4->expected_recv_seq)
             {
                 fprintf(stderr, "%s: Received DATA with expected seqno=%d\n", __FUNCTION__, recv_header->seqno);
@@ -275,7 +306,7 @@ int l4sap_recv(L4SAP *l4, uint8_t *data, int len)
 
                     if (i < ack_attempts - 1)
                     {
-                        usleep(1000);
+                        usleep(1000); // ???
                     }
                 }
 
@@ -286,6 +317,7 @@ int l4sap_recv(L4SAP *l4, uint8_t *data, int len)
             }
             else
             {
+
                 fprintf(stderr, "%s: Received duplicate DATA with seqno=%d, expected %d\n", __FUNCTION__,
                         recv_header->seqno, l4->expected_recv_seq);
 
@@ -313,6 +345,7 @@ int l4sap_recv(L4SAP *l4, uint8_t *data, int len)
         }
         else if (recv_header->type == L4_ACK)
         {
+
             fprintf(stderr, "%s: Received ACK with ackno=%d\n", __FUNCTION__, recv_header->ackno);
 
             if (recv_header->ackno == (1 - l4->next_send_seq))
@@ -332,7 +365,6 @@ int l4sap_recv(L4SAP *l4, uint8_t *data, int len)
 
     return -1;
 }
-
 
 /** This function is called to terminate the L4 entity and
  *  free all of its resources.
