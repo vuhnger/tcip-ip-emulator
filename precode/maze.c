@@ -46,18 +46,17 @@ static int solveMazeBFS(struct Maze* maze) {
     } Direction;
 
     Direction directions[] = {
-        {1, 0, right},   // move right
-        {0, 1, down},    // move down
-        {-1, 0, left},   // move left
-        {0, -1, up}      // move up
+        {1, 0, right},   
+        {0, 1, down},    
+        {-1, 0, left},   
+        {0, -1, up}      
     };
     
-    // Flag to indicate if we found the target
-    int found = 0;
+    int endFound = 0;
     int target_idx = -1;
     
     // BFS loop
-    while (headIndex < tailIndex && !found) {
+    while (headIndex < tailIndex && !endFound) {
         // Get current cell
         int curr_x = queue[headIndex].x;
         int curr_y = queue[headIndex].y;
@@ -66,44 +65,40 @@ static int solveMazeBFS(struct Maze* maze) {
         // Check all four directions
         for (int dir = 0; dir < 4; dir++) {
             // If no passage in this direction, skip
-            if (!(maze->maze[curr_idx] & directions[dir].bit))
-                continue;
+
+            int isValidDirection = maze->maze[curr_idx] & directions[dir].bit;
+
+            if (!isValidDirection) continue;
             
             int new_x = curr_x + directions[dir].dx;
             int new_y = curr_y + directions[dir].dy;
 
-            // If new position is out of bounds, skip
-            if (new_x < 0 || new_x >= maze->edgeLen || 
-                new_y < 0 || new_y >= maze->edgeLen)
-                continue;
+            int positionOutOfBounds = new_x < 0 || new_x >= maze->edgeLen || new_y < 0 || new_y >= maze->edgeLen;
+            
+            if (positionOutOfBounds) continue;
 
             int new_idx = new_y * maze->edgeLen + new_x;
 
-            // If already visited, skip
-            if (visited[new_idx])
-                continue;
+            if (visited[new_idx]) continue;
 
-            // Add to queue
+            // add cell to queue
             queue[tailIndex].x = new_x;
             queue[tailIndex].y = new_y;
             queue[tailIndex].prevIndex = headIndex;
             visited[new_idx] = 1;
 
-            // Check if target found
-            if (new_x == maze->endX && new_y == maze->endY) {
-                found = 1;
+            if ((endFound = new_x == maze->endX && new_y == maze->endY)) {
                 target_idx = tailIndex;
                 break;
             }
-
             tailIndex++;
         }
-        
+
         headIndex++;
     }
     
-    // If target found, trace back the path and mark it
-    if (found) {
+    // If target endFound, trace back the path and mark it
+    if (endFound) {
         // Start from the target and go back to the start
         int curr = target_idx;
         while (curr != -1) {
@@ -119,7 +114,7 @@ static int solveMazeBFS(struct Maze* maze) {
     free(visited);
     free(queue);
     
-    return found;
+    return endFound;
 }
 
 void mazeSolve(struct Maze* maze) {
