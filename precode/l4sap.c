@@ -128,8 +128,7 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
         fprintf(stderr, "%s: sending seqno=%d (attempt %d/%d)\n",
                 __FUNCTION__, header->seqno, attempts + 1, max_attempts);
 
-        int send_res = l2sap_sendto(l4->l2, frame,
-                                    sizeof(L4Header) + len);
+        int send_res = l2sap_sendto(l4->l2, frame, sizeof(L4Header) + len);
         if (send_res < 0)
         {
             fprintf(stderr, "%s: L2 send failed on attempt %d\n",
@@ -139,29 +138,21 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
         }
 
         uint8_t recv_buf[L4Framesize];
-        int corrupt_count = 0;
-        const int max_corrupt = 3;
         int recv_res;
 
         while (1)
         {
-            recv_res = l2sap_recvfrom_timeout(l4->l2,recv_buf,L4Framesize,&timeout);
+            recv_res = l2sap_recvfrom_timeout(l4->l2, recv_buf, L4Framesize, &timeout);
 
             if (recv_res == L2_TIMEOUT)
             {
-                fprintf(stderr, "%s: timeout waiting for ACK\n",
-                        __FUNCTION__);
+                fprintf(stderr, "%s: timeout waiting for ACK\n", __FUNCTION__);
                 break;
             }
             if (recv_res < 0)
             {
-                if (++corrupt_count >= max_corrupt)
-                {
-                    fprintf(stderr, "%s: too many corrupt pkts, retrying\n",
-                            __FUNCTION__);
-                    break;
-                }
-                continue;
+                fprintf(stderr, "%s: error receiving packet\n", __FUNCTION__);
+                break;
             }
             if (recv_res < sizeof(L4Header))
             {
@@ -203,6 +194,7 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
             __FUNCTION__, max_attempts);
     return L4_SEND_FAILED;
 }
+
 
 /* The functions receives a packet from the network. The packet's
  * payload is copy into the buffer that it is passed as an argument
