@@ -5,25 +5,22 @@
 
 #include "maze.h"
 
-// Queue structure for BFS
+// queue
 typedef struct {
     int x;
     int y;
-    int prevIndex;  // Index of previous cell in queue
+    int prevIndex;
 } Cell;
 
-
-
-// Solve maze using BFS (Breadth-First Search)
 static int solveMazeBFS(struct Maze* maze) {
-    // Allocate visited array to avoid revisiting cells
+
+    // sets all values in allocated region to 0 (unvisited)
     char* visited = calloc(maze->size, sizeof(char));
     if (!visited) {
         fprintf(stderr, "%s: memory allocation failed for visited\n", __FUNCTION__);
         return 0;
     }
     
-    // Allocate queue for BFS
     Cell* queue = malloc(maze->size * sizeof(Cell));
     if (!queue) {
         fprintf(stderr, "%s: memory allocation failed for queue\n", __FUNCTION__);
