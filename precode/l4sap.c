@@ -71,9 +71,11 @@ L4SAP *l4sap_create(const char *server_ip, int server_port)
  */
 int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
 {
-    if (l4 == NULL || data == NULL || len < 0) return -1;
+    if (l4 == NULL || data == NULL || len < 0)
+        return -1;
 
-    if (len > L4Payloadsize) len = L4Payloadsize;
+    if (len > L4Payloadsize)
+        len = L4Payloadsize;
 
     uint8_t frame[L4Framesize];
     L4Header *header = (L4Header *)frame;
@@ -90,12 +92,14 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
     int attempts = 0;
     struct timeval timeout;
 
-    while (attempts < max_attempts){
+    while (attempts < max_attempts)
+    {
         timeout.tv_sec = 1;
         timeout.tv_usec = 0;
 
         int send_res = l2sap_sendto(l4->l2, frame, sizeof(L4Header) + len);
-        if (send_res < 0){
+        if (send_res < 0)
+        {
             attempts++;
             continue;
         }
@@ -113,7 +117,8 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
 
             L4Header *rcv = (L4Header *)recv_buf;
 
-            switch (rcv->type){
+            switch (rcv->type)
+            {
             case L4_RESET:
                 l4->is_terminating = 1;
                 return L4_QUIT; // caller must free memory
@@ -128,19 +133,19 @@ int l4sap_send(L4SAP *l4, const uint8_t *data, int len)
                 continue;
 
             case L4_DATA:
-                    // ACK the received data
-                    {
-                        uint8_t ack_frame[sizeof(L4Header)];
-                        L4Header *ack_header = (L4Header *)ack_frame;
-                        ack_header->type = L4_ACK;
-                        ack_header->seqno = l4->next_send_seq;  // my send seq
-                        ack_header->ackno = (1 - rcv->seqno);   // acknowledge other side's packet
-                        ack_header->mbz = 0;
+                // ACK the received data
+                {
+                    uint8_t ack_frame[sizeof(L4Header)];
+                    L4Header *ack_header = (L4Header *)ack_frame;
+                    ack_header->type = L4_ACK;
+                    ack_header->seqno = l4->next_send_seq; // my send seq
+                    ack_header->ackno = (1 - rcv->seqno);  // acknowledge other side's packet
+                    ack_header->mbz = 0;
 
-                        l2sap_sendto(l4->l2, ack_frame, sizeof(L4Header));
-                        fprintf(stderr, "%s: sending ack for data\n", __FUNCTION__);
-                        continue;
-                    }
+                    l2sap_sendto(l4->l2, ack_frame, sizeof(L4Header));
+                    fprintf(stderr, "%s: sending ack for data\n", __FUNCTION__);
+                    continue;
+                }
             default:
                 continue;
             }
@@ -204,8 +209,6 @@ int l4sap_recv(L4SAP *l4, uint8_t *data, int len)
                 for (int i = 0; i < ack_attempts; i++)
                 {
                     l2sap_sendto(l4->l2, ack_frame, sizeof(L4Header));
-                    if (i < ack_attempts - 1)
-                        usleep(1000);
                 }
 
                 l4->expected_recv_seq = 1 - l4->expected_recv_seq;
@@ -261,7 +264,6 @@ void l4sap_destroy(L4SAP *l4)
         for (int i = 0; i < 3; i++)
         {
             l2sap_sendto(l4->l2, reset_frame, sizeof(L4Header));
-            usleep(50000);
         }
     }
 

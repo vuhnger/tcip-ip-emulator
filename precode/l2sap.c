@@ -55,9 +55,9 @@ L2SAP *l2sap_create(const char *server_ip, int server_port)
     local_addr.sin_addr.s_addr = INADDR_ANY;
     local_addr.sin_port = 0;
 
-    int ret;
-    ret = bind(service_access_point->socket, (struct sockaddr *)&local_addr, sizeof(local_addr));
-    if (ret < 0)
+    int retval;
+    retval = bind(service_access_point->socket, (struct sockaddr *)&local_addr, sizeof(local_addr));
+    if (retval < 0)
     {
         fprintf(stderr, "%s: binding failed\n", __FUNCTION__);
         close(service_access_point->socket);
@@ -83,7 +83,7 @@ void l2sap_destroy(L2SAP *client)
         close(client->socket);
     }
 
-    fprintf(stderr, "%s: freenig client memory\n", __FUNCTION__);
+    fprintf(stderr, "%s: freeing client memory\n", __FUNCTION__);
     free(client);
 }
 
@@ -116,8 +116,8 @@ int l2sap_sendto(L2SAP *client, const uint8_t *data, int len)
     const int PACKET_SIZE = len + sizeof(L2Header);
 
     header->dst_addr = client->peer_addr.sin_addr.s_addr;
-    header->len = htons(PACKET_SIZE); // Uncertain about this
-    header->checksum = 0;             // Initialize to 0 and compute checksum value later
+    header->len = htons(PACKET_SIZE);
+    header->checksum = 0;
     header->mbz = 0;
     memcpy(frame + sizeof(L2Header), data, len);
     uint8_t temp_checksum = compute_checksum(frame, sizeof(L2Header) + len);
@@ -289,7 +289,7 @@ int l2sap_recvfrom_timeout(L2SAP *client, uint8_t *data, int len, struct timeval
     }
     else
     {
-        payload_len = len;
+        copy_len = len;
     }
 
     if (copy_len > 0)
