@@ -41,7 +41,8 @@ L2SAP *l2sap_create(const char *server_ip, int server_port)
     service_access_point->peer_addr.sin_family = AF_INET;
     service_access_point->peer_addr.sin_port = htons(server_port);
 
-    if (inet_pton(AF_INET, server_ip, &service_access_point->peer_addr.sin_addr) <= 0)
+    int validIp = inet_pton(AF_INET, server_ip, &service_access_point->peer_addr.sin_addr);
+    if (validIp <= 0)
     {
         fprintf(stderr, "%s: Invalid IP address\n", __FUNCTION__);
         close(service_access_point->socket);
@@ -55,9 +56,8 @@ L2SAP *l2sap_create(const char *server_ip, int server_port)
     local_addr.sin_addr.s_addr = INADDR_ANY;
     local_addr.sin_port = 0;
 
-    int retval;
-    retval = bind(service_access_point->socket, (struct sockaddr *)&local_addr, sizeof(local_addr));
-    if (retval < 0)
+    int bindValue = bind(service_access_point->socket, (struct sockaddr *)&local_addr, sizeof(local_addr));
+    if (bindValue < 0)
     {
         fprintf(stderr, "%s: binding failed\n", __FUNCTION__);
         close(service_access_point->socket);
@@ -125,30 +125,22 @@ int l2sap_sendto(L2SAP *client, const uint8_t *data, int len)
 
     fprintf(stderr, "%s: Size of payload+headerr: %d\n", __FUNCTION__, PACKET_SIZE);
 
-    int bytes_sent = sendto(
-        client->socket,
-        frame,
-        PACKET_SIZE,
-        0,
-        (struct sockaddr *)&client->peer_addr, sizeof(client->peer_addr));
+    int bytes_sent = sendto(client->socket, frame, PACKET_SIZE, 0,
+                            (struct sockaddr *)&client->peer_addr, sizeof(client->peer_addr));
 
     if (bytes_sent < 0)
     {
         fprintf(stderr, "%s: fail to send bytes, sent %d.\n", __FUNCTION__, bytes_sent);
         return -1;
     }
-
-    if (bytes_sent != sizeof(L2Header) + len)
+    if (bytes_sent != PACKET_SIZE)
     {
         fprintf(stderr, "%s: sent %d bytes,  expected %d\n", __FUNCTION__, bytes_sent, PACKET_SIZE);
         return -1;
     }
 
-    fprintf(stderr, "%s Sending frame of size %d to %s:%d\n",
-            __FUNCTION__,
-            bytes_sent,
-            inet_ntoa(client->peer_addr.sin_addr),
-            ntohs(client->peer_addr.sin_port));
+    fprintf(stderr, "%s Sending frame of size %d to %s:%d\n", __FUNCTION__, bytes_sent,
+            inet_ntoa(client->peer_addr.sin_addr), ntohs(client->peer_addr.sin_port));
 
     return len;
 }
@@ -195,8 +187,7 @@ int l2sap_recvfrom_timeout(L2SAP *client, uint8_t *data, int len, struct timeval
         fprintf(stderr, "%s: setting timeout to %ld\n", __FUNCTION__, timeout->tv_sec);
     }
 
-    int select_result = select(client->socket + 1, &readfds, NULL, NULL,
-                               timeout ? &timeout_copy : NULL);
+    int select_result = select(client->socket + 1, &readfds, NULL, NULL, timeout ? &timeout_copy : NULL);
 
     fprintf(stderr, "%s: seleted result is %d\n", __FUNCTION__, select_result);
 
@@ -272,10 +263,8 @@ int l2sap_recvfrom_timeout(L2SAP *client, uint8_t *data, int len, struct timeval
 
     if (calculated_checksum != received_checksum)
     {
-        fprintf(stderr, "%s: checksum verification failed (got %02x, expected %02x)\n",
-                __FUNCTION__,
-                calculated_checksum,
-                received_checksum);
+        fprintf(stderr, "%s: checksum verification failed (got %d, expected %d)\n",
+                __FUNCTION__, calculated_checksum, received_checksum);
         return -1;
     }
 
