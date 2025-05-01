@@ -2,16 +2,22 @@
 
 ## Issue: valgrind errors on datalink-test-client, transport-test-client
 
- When running our client with valgrind, we get warnings about uninitialized memory.
- The main issue seems to happen in l4sap_send, where Valgrind reports that a conditional jump depends on uninitialized values.
- According to the error messages, the uninitialized value comes from a stack allocation,
- and the problem shows up when we copy data into buffers and later use them in conditions or send them over the network.
- We believe this happens because the len value we pass in is sometimes much larger than the actual data we put into the buffer.
- Even though we tried using memset to zero out the buffers, the warnings didn’t go away.
- We think this is because the buffer still contains uninitialized bytes when we copy or send more than what was actually written.
+When running our client with valgrind, we get warnings about uninitialized memory.
+The main issue seems to happen in l4sap_send, where Valgrind reports that a conditional jump depends on uninitialized values.
+According to the error messages, the uninitialized value comes from a stack allocation,
+and the problem shows up when we copy data into buffers and later use them in conditions or send them over the network.
+We believe this happens because the len value we pass in is sometimes much larger than the actual data we put into the buffer.
+Even though we tried using memset to zero out the buffers, the warnings didn’t go away.
+We think this is because the buffer still contains uninitialized bytes when we copy or send more than what was actually written.
+
+
+We added the following LOC to datalink-test-client.c to remove valgrind errors in datalink-test-client:
+
+memset(buffer, 0, sizeof(buffer));
+ 
 
 valgrind error:
- --79695-- REDIR: 0x49068c0 (libc.so.6:free) redirected to 0x4847ada (free)
+--79695-- REDIR: 0x49068c0 (libc.so.6:free) redirected to 0x4847ada (free)
 ==79695== 
 ==79695== HEAP SUMMARY:
 ==79695==     in use at exit: 0 bytes in 0 blocks
