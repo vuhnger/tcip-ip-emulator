@@ -34,6 +34,7 @@ int main( int argc, char *argv[] )
         fprintf( stderr, "\n%s: Round %d\n\n", __FUNCTION__, i );
 
         char buffer[4096];
+        memset(buffer, 0, sizeof(buffer));
         snprintf( buffer, 1024, "message %d from client to server.", i );
 
         int len = maxi( strlen(buffer)+1, 4*(2<<i) );
